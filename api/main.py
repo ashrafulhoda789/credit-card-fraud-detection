@@ -1,6 +1,7 @@
 import os
 import joblib
 import numpy as np
+import shap
 from datetime import datetime
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
@@ -30,7 +31,7 @@ class TransactionLog(Base):
 
 Base.metadata.create_all(bind=engine)
 
-# 3. Load Models
+# 3. Load Models & Initialize SHAP Explainer
 MODEL_PATH = os.path.join('models', 'hybrid_model.pkl')
 SCALER_PATH = os.path.join('models', 'scaler.pkl')
 
@@ -39,6 +40,11 @@ if not os.path.exists(MODEL_PATH) or not os.path.exists(SCALER_PATH):
 
 model = joblib.load(MODEL_PATH)
 scaler = joblib.load(SCALER_PATH)
+
+# Initialize SHAP Explainer for VotingClassifier using predict_proba & background masker
+masker = np.zeros((1, 30))
+explainer = shap.Explainer(model.predict_proba, masker)
+feature_names = ['Time'] + [f'V{i}' for i in range(1, 29)] + ['Amount']
 
 # 4. Request Schema
 class RawTransactionRequest(BaseModel):
@@ -50,8 +56,6 @@ class RawTransactionRequest(BaseModel):
 # 5. Core Processing & Prediction Endpoint
 @app.post("/api/v1/predict")
 def predict_transaction(tx: RawTransactionRequest):
-    # Dummy Feature Extraction Pipeline (Raw Data -> PCA V1-V28 Map)
-    # বাস্তবে এখানে ব্যাংকের নিজস্ব Preprocessing Engine থাকে
     v_features = [0.0] * 28  
     time_val = 100.0          
 
@@ -60,6 +64,22 @@ def predict_transaction(tx: RawTransactionRequest):
     
     prediction = int(model.predict(scaled_data)[0])
     probability = float(model.predict_proba(scaled_data)[0][1])
+
+    # Calculate SHAP values dynamically for VotingClassifier
+    shap_vals = explainer(scaled_data)
+    vals = shap_vals.values[0]
+    if vals.ndim == 2:  # Target Class 1 (Fraud Probability)
+        vals = vals[:, 1]
+    
+    reasons = []
+    for f_name, val in zip(feature_names, vals):
+        reasons.append({
+            "feature": f_name,
+            "shap_value": float(val),
+            "impact": "Increased Fraud Risk" if val > 0 else "Decreased Fraud Risk"
+        })
+    # Sort by absolute SHAP values to extract top drivers
+    reasons = sorted(reasons, key=lambda x: abs(x['shap_value']), reverse=True)[:5]
 
     # Save Log to Database
     db = SessionLocal()
@@ -81,6 +101,7 @@ def predict_transaction(tx: RawTransactionRequest):
         "card_number": masked_card,
         "is_fraud": bool(prediction),
         "fraud_risk_percentage": round(probability * 100, 2),
+        "top_shap_reasons": reasons,
         "timestamp": datetime.utcnow().isoformat()
     }
 
