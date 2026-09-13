@@ -15,6 +15,40 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Domain-Specific Human Readable Mapping for PCA Features
+FEATURE_EXPLANATIONS = {
+    'Time': 'Transaction Time Pattern',
+    'Amount': 'Transaction Amount Magnitude',
+    'V1': 'Account Activity Anomaly',
+    'V2': 'Transaction Distance / Location Variance',
+    'V3': 'Credit Limit Ratio Anomaly',
+    'V4': 'Rapid Successive Transactions (Velocity)',
+    'V5': 'Device ID Change Frequency',
+    'V6': 'Merchant Category Risk Index',
+    'V7': 'IP Address Location Mismatch',
+    'V8': 'Authentication Attempt Frequency',
+    'V9': 'Account Balance Drop Ratio',
+    'V10': 'High Risk Geographic Transfer',
+    'V11': 'Unusual Time-of-Day Activity',
+    'V12': 'Card Not Present (CNP) Pattern',
+    'V13': 'Cross-Border Banking Channel',
+    'V14': 'Behavioral Fraud Pattern Score',
+    'V15': 'Unusual Currency / FX Route',
+    'V16': 'Beneficiary Account Risk Index',
+    'V17': 'Multiple Failed OTP / PIN Attempts',
+    'V18': 'Session Duration & Typing Dynamics',
+    'V19': 'High Velocity Micro-Transactions',
+    'V20': 'Overdraft Limit Proximity',
+    'V21': 'Card Age & Account History Anomaly',
+    'V22': 'New Device Login Pattern',
+    'V23': 'Peer-to-Peer Transfer Velocity',
+    'V24': 'Off-Hours Transaction Spurt',
+    'V25': 'POS Terminal Risk Profile',
+    'V26': 'Routing Bank Risk Score',
+    'V27': 'Unusual Billing Address Distance',
+    'V28': 'Repeated Small Authorization Checks'
+}
+
 st.markdown("""
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
@@ -221,7 +255,7 @@ tab1, tab2, tab3 = st.tabs(["Banker Mode", "Technical Mode", "Bulk CSV Processin
 
 with tab1:
     st.markdown("### <i class='fa-solid fa-building-columns'></i> Real-time Transaction Analysis", unsafe_allow_html=True)
-    st.caption("Enter standard transaction details. System will analyze fraud risk and explain reasons.")
+    st.caption("Enter standard transaction details. System will analyze fraud risk and explain key factors.")
     
     col1, col2 = st.columns(2)
     
@@ -320,8 +354,11 @@ with tab1:
             with c2:
                 st.markdown("#### Key Factor Breakdown")
                 for _, row in top_reasons.head(5).iterrows():
+                    feat = row['Feature']
+                    reason = FEATURE_EXPLANATIONS.get(feat, "Unknown Factor")
                     direction = "Increased Risk <i class='fa-solid fa-arrow-up-long' style='color:red;'></i>" if row['SHAP Value'] > 0 else "Decreased Risk <i class='fa-solid fa-arrow-down-long' style='color:green;'></i>"
-                    st.markdown(f"• **{row['Feature']}**: {direction} (Impact: `{row['SHAP Value']:.4f}`)", unsafe_allow_html=True)
+                    
+                    st.markdown(f"• **{feat}** ({reason}): {direction} — *Impact: `{row['SHAP Value']:+.4f}`*", unsafe_allow_html=True)
             
         except Exception as e:
             st.error(f"Error during analysis: {str(e)}")
@@ -396,8 +433,19 @@ with tab2:
             with col2: st.metric("Fraud Probability", f"{probability * 100:.2f}%")
             
             st.markdown("#### <i class='fa-solid fa-flask'></i> SHAP Feature Impact Analysis", unsafe_allow_html=True)
-            shap_fig, _ = plot_shap_summary(explainer, scaled_data)
-            st.plotly_chart(shap_fig, use_container_width=True)
+            shap_fig, top_reasons = plot_shap_summary(explainer, scaled_data)
+            
+            c1, c2 = st.columns([1, 1])
+            with c1:
+                st.plotly_chart(shap_fig, use_container_width=True)
+            with c2:
+                st.markdown("#### Key Factor Breakdown")
+                for _, row in top_reasons.head(5).iterrows():
+                    feat = row['Feature']
+                    reason = FEATURE_EXPLANATIONS.get(feat, "Unknown Factor")
+                    direction = "Increased Risk <i class='fa-solid fa-arrow-up-long' style='color:red;'></i>" if row['SHAP Value'] > 0 else "Decreased Risk <i class='fa-solid fa-arrow-down-long' style='color:green;'></i>"
+                    
+                    st.markdown(f"• **{feat}** ({reason}): {direction} — *Impact: `{row['SHAP Value']:+.4f}`*", unsafe_allow_html=True)
             
         except Exception as e:
             st.error(f"Error: {str(e)}")
@@ -448,6 +496,6 @@ with tab3:
 st.divider()
 st.markdown("""
 <div style='text-align: center; color: #666; font-size: 12px;'>
-    Credit Card Fraud Detection Dashboard v2.0 | Updated: 2026-08-20 | Vector Icons & SHAP Integrated
+    Credit Card Fraud Detection Dashboard v2.0 | Vector Icons & SHAP Integrated
 </div>
 """, unsafe_allow_html=True)

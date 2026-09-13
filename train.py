@@ -12,7 +12,7 @@ def train_and_save_model():
     data_path = os.path.join('data', 'creditcard.csv')
     
     if not os.path.exists(data_path):
-        raise FileNotFoundError(f"'{data_path}' ফাইলটি পাওয়া যায়নি। অনুগ্রহ করে ডেটাসেটটি 'data/' ফোল্ডারে রাখুন।")
+        raise FileNotFoundError(f"'{data_path}' File Not found")
 
     print("LOAD DATASET...")
     df = pd.read_csv(data_path)
@@ -49,3 +49,6 @@ def train_and_save_model():
 
 if __name__ == '__main__':
     train_and_save_model()
+
+
+    # python -m streamlit run app.py
