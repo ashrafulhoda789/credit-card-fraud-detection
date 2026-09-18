@@ -4,6 +4,10 @@ numpy
 scikit-learn
 joblib
 xgboost
-plotly  
+plotly
 matplotlib
 shap
+lightgbm
+catboost
+torch
+pytorch-tabnet
